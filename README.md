@@ -1,0 +1,5 @@
+# discord-bot-connector
+
+あるvcチャンネルと別のサーバーのvcチャンネルを接続できるようにするBot
+
+現状はjoinとleftしか実装できてない
