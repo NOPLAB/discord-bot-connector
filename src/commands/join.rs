@@ -5,11 +5,11 @@ use songbird::CoreEvent;
 
 use crate::songbird_handler::DriverDisconnectNotifier;
 
-pub async fn run(ctx: &Context, interaction: &ApplicationCommandInteraction) -> String {
-    let guild = ctx.cache.guild(&interaction.guild_id.unwrap()).unwrap();
+pub async fn run(ctx: &Context, cmd_interaction: &ApplicationCommandInteraction) -> String {
+    let guild = ctx.cache.guild(&cmd_interaction.guild_id.unwrap()).unwrap();
     let channel_id = guild
         .voice_states
-        .get(&interaction.user.id)
+        .get(&cmd_interaction.user.id)
         .and_then(|voice_state| voice_state.channel_id);
 
     let connect_to = match channel_id {

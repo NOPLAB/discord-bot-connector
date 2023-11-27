@@ -1,7 +1,9 @@
 mod commands;
 mod songbird_handler;
 mod voicevox;
+mod wavsource;
 
+use chrono::{Local, Timelike};
 use reqwest::Url;
 use serenity::model::application::command::Command;
 use serenity::model::application::interaction::{Interaction, InteractionResponseType};
@@ -9,19 +11,19 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 use serenity::{async_trait, FutureExt};
-use songbird::SerenityInit;
+use songbird::{create_player, SerenityInit};
 use std::cell::RefCell;
 use std::env;
+use std::io::Cursor;
 use std::sync::Arc;
 use tokio::{select, task};
 use tokio_util::sync::CancellationToken;
 
 use voicevox::api::Voicevox;
-
-// use serenity::model::id::GuildId;
+use wavsource::wav_reader;
 
 struct Bot {
-    voicevox: Voicevox,
+    voicevox: Arc<Voicevox>,
     cancel_token: Arc<Mutex<RefCell<Option<CancellationToken>>>>,
 }
 
@@ -51,35 +53,22 @@ impl EventHandler for Bot {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            let content = match command.data.name.as_str() {
-                "ping" => commands::ping::run(),
-                "join" => commands::join::run(&ctx, &command).await,
-                "left" => commands::left::run(&ctx, &command).await,
+        if let Interaction::ApplicationCommand(app_cmd_interaction) = interaction {
+            let content = match app_cmd_interaction.data.name.as_str() {
+                "ping" => {
+                    commands::ping::run(&ctx, &app_cmd_interaction, Arc::clone(&self.voicevox))
+                        .await
+                }
+                "join" => commands::join::run(&ctx, &app_cmd_interaction).await,
+                "left" => commands::left::run(&ctx, &app_cmd_interaction).await,
                 "timer" => {
-                    let token = CancellationToken::new();
-                    let cloned_token = token.clone();
-
-                    let cancel_token = self.cancel_token.lock().await;
-                    let mut borrowed = cancel_token.borrow_mut();
-                    *borrowed = Some(token);
-
-                    let channel_id = command.channel_id.clone();
-                    let http = Arc::clone(&ctx.http);
-
-                    let _ = task::spawn(async move {
-                        loop {
-                            let http_clone = Arc::clone(&http);
-                            select! {
-                                _ = cloned_token.cancelled().fuse() => { println!("Cancelled"); break;}
-                                _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)).fuse() => {
-                                    channel_id.say(http_clone, "Wake!!").await.unwrap();
-                                }
-                            }
-                            println!("Time");
-                        }
-                    });
-                    commands::timer::run()
+                    commands::timer::run(
+                        &ctx,
+                        &app_cmd_interaction,
+                        Arc::clone(&self.voicevox),
+                        Arc::clone(&self.cancel_token),
+                    )
+                    .await
                 }
                 "cancel" => {
                     let cancel_token = self.cancel_token.lock().await;
@@ -93,7 +82,7 @@ impl EventHandler for Bot {
                 _ => "not impl!".to_string(),
             };
 
-            if let Err(why) = command
+            if let Err(why) = app_cmd_interaction
                 .create_interaction_response(&ctx.http, |response| {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
@@ -119,12 +108,12 @@ async fn main() {
 
     let mut client = Client::builder(&token, intents)
         .event_handler(Bot {
-            voicevox: Voicevox::new(
+            voicevox: Arc::new(Voicevox::new(
                 Url::parse(
                     &env::var("VOICEVOX_URL").expect("Expected a VOICEVOX_URL in the environment"),
                 )
                 .expect("Expected VOICEVOX_URL couldn't parse"),
-            ),
+            )),
             cancel_token: Arc::new(Mutex::new(RefCell::new(None))),
         })
         .register_songbird()

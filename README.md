@@ -1,5 +1,7 @@
 # discord-bot-connector
 
-あるvcチャンネルと別のサーバーのvcチャンネルを接続できるようにするBot
+DiscordBot
 
-現状はjoinとleftしか実装できてない
+参考にさせていただいたリポジトリ
+
+- https://github.com/yanorei32/discord-tts ©yanorei32 2022 BSD 2-Clause "Simplified" License
