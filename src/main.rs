@@ -3,24 +3,20 @@ mod songbird_handler;
 mod voicevox;
 mod wavsource;
 
-use chrono::{Local, Timelike};
 use reqwest::Url;
+use serenity::async_trait;
 use serenity::model::application::command::Command;
 use serenity::model::application::interaction::{Interaction, InteractionResponseType};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
-use serenity::{async_trait, FutureExt};
-use songbird::{create_player, SerenityInit};
+use songbird::SerenityInit;
 use std::cell::RefCell;
 use std::env;
-use std::io::Cursor;
 use std::sync::Arc;
-use tokio::{select, task};
 use tokio_util::sync::CancellationToken;
 
 use voicevox::api::Voicevox;
-use wavsource::wav_reader;
 
 struct Bot {
     voicevox: Arc<Voicevox>,
